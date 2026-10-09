@@ -110,11 +110,26 @@ export async function runAdvisory(vuln, { repoPath = config.demoAppPath, detecte
     detectionToPrMs: Date.now() - detectedAt.getTime(),
     guardrailFiles,
   };
-  facts.explanation = await explain(facts);
+  const explanation = await explain(facts);
+  facts.explanation = explanation.text;
   const title = `fix(deps): upgrade ${pkg} ${fromVersion} → ${safeVersion} (${vuln.id})${verified ? "" : " [needs-human]"}`;
   const pr = await openPr({ repoPath, branch: `jingang/${vuln.id.toLowerCase()}-${runId}`, title, body: buildBody(facts), runId });
   facts.detectionToPrMs = Date.now() - detectedAt.getTime();
-  await log("pr", pr.url ? "opened" : "dry", { url: pr.url, bodyPath: pr.bodyPath, branch: pr.branch, label: verified ? null : "needs-human", detection_to_pr_ms: facts.detectionToPrMs, source }, t);
+  await log(
+    "pr",
+    pr.url ? "opened" : "dry",
+    {
+      url: pr.url,
+      bodyPath: pr.bodyPath,
+      branch: pr.branch,
+      label: verified ? null : "needs-human",
+      detection_to_pr_ms: facts.detectionToPrMs,
+      source,
+      explanation_source: explanation.source,
+      explanation_fallback_reason: explanation.reason,
+    },
+    t,
+  );
 
   // 8. Store guardrails
   t = Date.now();

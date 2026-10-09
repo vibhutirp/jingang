@@ -103,9 +103,11 @@ Opened by Jingang. Detection to PR: ${Math.round(f.detectionToPrMs / 1000)} s. R
 `;
 }
 
+// Resolves to {text, source, reason}: source is "model" or "template", reason says why the template won.
 export async function explain(f) {
   const fallback = `Your lockfile has ${f.package} ${f.fromVersion}, inside the range affected by ${f.advisory.id} (${f.advisory.summary}). Jingang confirmed the code calls the vulnerable function at ${f.callSites[0]?.file}:${f.callSites[0]?.line}, so this is exposure, not just an old version. The upgrade to ${f.toVersion} is the newest release outside every known advisory for this package.`;
-  if (mode.akash !== "live") return fallback;
+  const template = (reason) => ({ text: fallback, source: "template", reason });
+  if (mode.akash !== "live") return template("no AKASHML_API_KEY");
   try {
     // A slow or dead model endpoint must never hold up the PR; the template is always acceptable.
     const res = await fetch(`${config.akash.baseUrl}/chat/completions`, {
@@ -127,13 +129,15 @@ export async function explain(f) {
         ],
       }),
     });
-    if (!res.ok) return fallback;
+    if (!res.ok) return template(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     const choice = data.choices?.[0];
-    if (choice?.finish_reason === "length") return fallback;
-    return acceptableExplanation(choice?.message?.content, f) ?? fallback;
-  } catch {
-    return fallback;
+    if (choice?.finish_reason === "length") return template("finish_reason length");
+    const accepted = acceptableExplanation(choice?.message?.content, f);
+    if (accepted === null) return template(`rejected model text: ${String(choice?.message?.content ?? "").slice(0, 300)}`);
+    return { text: accepted, source: "model", reason: null };
+  } catch (err) {
+    return template(`request failed: ${err.message}`);
   }
 }
 
