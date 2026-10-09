@@ -1,7 +1,15 @@
 ---
 # Akash console deployment: an open model behind an OpenAI-compatible endpoint.
-# After the lease starts, the console shows a host and port for "api";
-# set AKASHML_BASE_URL=http://<host>:<port>/v1 and AKASHML_MODEL=qwen2.5:3b.
+#
+# Before deploying, replace JINGANG_LLM_TOKEN below with a random string
+# (for example the output of `openssl rand -hex 16`). The proxy rejects
+# every request that does not carry it as a bearer token, and Ollama
+# itself is reachable only from the proxy, never from the internet.
+#
+# After the lease starts, the console shows a host and port for "proxy":
+#   AKASHML_BASE_URL=http://<host>:<port>/v1
+#   AKASHML_API_KEY=<the same token>
+#   AKASHML_MODEL=qwen2.5:3b
 version: "2.0"
 
 services:
@@ -17,6 +25,31 @@ services:
       - OLLAMA_KEEP_ALIVE=24h
     expose:
       - port: 11434
+        to:
+          - service: proxy
+
+  proxy:
+    image: caddy:2-alpine
+    command:
+      - sh
+      - -c
+    args:
+      - >-
+        printf ':80 {\n
+        @ok {\n
+        header Authorization "Bearer {$JINGANG_LLM_TOKEN}"\n
+        path /v1/chat/completions\n
+        }\n
+        handle @ok {\n
+        reverse_proxy llm:11434\n
+        }\n
+        respond 401\n
+        }\n' > /etc/caddy/Caddyfile
+        && caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    env:
+      - JINGANG_LLM_TOKEN=change-me-before-deploying
+    expose:
+      - port: 80
         as: 80
         to:
           - global: true
@@ -31,15 +64,30 @@ profiles:
           size: 8Gi
         storage:
           size: 20Gi
+    proxy:
+      resources:
+        cpu:
+          units: 0.25
+        memory:
+          size: 256Mi
+        storage:
+          size: 512Mi
   placement:
     dcloud:
       pricing:
         llm:
           denom: uakt
           amount: 10000
+        proxy:
+          denom: uakt
+          amount: 1000
 
 deployment:
   llm:
     dcloud:
       profile: llm
+      count: 1
+  proxy:
+    dcloud:
+      profile: proxy
       count: 1

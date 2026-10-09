@@ -127,10 +127,23 @@ export async function explain(f) {
     });
     if (!res.ok) return fallback;
     const data = await res.json();
-    return data.choices?.[0]?.message?.content?.trim() || fallback;
+    return acceptableExplanation(data.choices?.[0]?.message?.content, f) ?? fallback;
   } catch {
     return fallback;
   }
+}
+
+// Model text is untrusted: no links or markup, no versions or packages the facts do not contain.
+export function acceptableExplanation(text, f) {
+  if (typeof text !== "string") return null;
+  const plain = text.replace(/\s+/g, " ").trim();
+  if (plain.length < 40 || plain.length > 900) return null;
+  if (/https?:\/\/|www\.|[<>`#*_\[\]]/.test(plain)) return null;
+  const allowedVersions = new Set([f.fromVersion, f.toVersion]);
+  for (const v of plain.match(/\d+\.\d+\.\d+/g) ?? []) if (!allowedVersions.has(v)) return null;
+  const otherPackages = (plain.match(/\b[a-z][a-z0-9-]{2,}\/[a-z][a-z0-9-]+\b/g) ?? []).filter((p) => p !== f.package);
+  if (otherPackages.length) return null;
+  return plain;
 }
 
 export async function openPr({ repoPath, branch, title, body, runId }) {
