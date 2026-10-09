@@ -153,3 +153,6 @@ __pycache__/
 *.pyc
 .venv/
 agent/.cache/
+
+# Jingang run output (DRY-mode PR bodies, materialised guardrails)
+out/

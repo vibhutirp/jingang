@@ -1,0 +1,34 @@
+rules:
+  - id: jingang-ghsa-35jh-r3h4-6jhm-call
+    message: >-
+      Calls lodash $F, which allows command injection through template options
+      in lodash before 4.17.21 (GHSA-35jh-r3h4-6jhm). Exposed only if the lockfile
+      has lodash < 4.17.21.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      advisory: GHSA-35jh-r3h4-6jhm
+      package: lodash
+      kind: reachability
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      const $L = require("lodash");
+                      ...
+                  - pattern-inside: |
+                      import $L from "lodash";
+                      ...
+                  - pattern-inside: |
+                      import * as $L from "lodash";
+                      ...
+              - pattern: $L.$F(...)
+          - patterns:
+              - pattern-inside: |
+                  import { $F } from "lodash";
+                  ...
+              - pattern: $F(...)
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^(template)$

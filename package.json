@@ -1,0 +1,21 @@
+{
+  "name": "jingang",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Finds which new npm advisories actually reach your code, ships a verified upgrade PR, and stores guardrails.",
+  "scripts": {
+    "schema": "node --env-file-if-exists=.env src/schema.js",
+    "watch": "node --env-file-if-exists=.env src/watcher.js",
+    "replay": "node --env-file-if-exists=.env src/watcher.js --replay",
+    "api": "node --env-file-if-exists=.env src/api.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "semver": "7.7.2",
+    "yaml": "2.8.1"
+  }
+}
