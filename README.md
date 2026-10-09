@@ -159,9 +159,19 @@ The target is [jingang-demo-app](https://github.com/g7xu/jingang-demo-app), an E
 
 **Isn't this Dependabot?** Dependabot opens a PR for every version match. Jingang shows how many matches are actually reachable, opens a PR only for those, verifies the fix, and leaves guardrails that block the same bug from coming back. The suppressed count on the dashboard is the proof.
 
+## Security
+
+Judges may poke the system itself, so these are deliberate:
+
+- **Secrets live in environment variables only.** `.env` is ignored; `.env.example` lists names. The GitHub token is fine-grained, scoped to the demo app, and reaches git through `GIT_CONFIG_*` environment config, never in a command line or a remote URL.
+- **Never pushes to main.** Every change to the demo app is a commit on a new `jingang/<advisory>-<run>` branch and a pull request against the default branch.
+- **`/api/run` and `/api/approve` require an `X-Jingang-Secret` header.** With `JINGANG_API_SECRET` empty both return 401. `/api/stats` and `/api/events` are read-only and bind to 127.0.0.1.
+- **Model output is untrusted.** The PR's facts (versions, file, line, advisory link) come from data. AkashML writes only the explanation, and that text is rejected if it contains links, HTML, headings, versions or packages the facts do not name, or a claim that the call site was removed. The template is the fallback.
+- **The dashboard escapes every value** before it touches the page, since advisory text comes from public feeds.
+
 ## Status
 
-Built at the tokens& Cyberdefense Hackathon, San Francisco, Oct 9, 2026, by Guoxuan Xu and V. Sponsors used: ClickHouse Cloud for every table and the dashboard, Semgrep for reachability and the guardrails, Akash (AkashML) for the PR explanation. Not built: Guild.ai, the rule generator, blast radius.
+Built at the tokens& Cyberdefense Hackathon, San Francisco, Oct 9, 2026, by Guoxuan Xu and V. Sponsors used: ClickHouse Cloud for every table and the dashboard, Semgrep for reachability and the guardrails, Akash (AkashML) for the PR explanation. Not built: Guild.ai (the `/api/approve` endpoint records an event but gates nothing), the rule generator (every demo rule is hand-written), blast radius.
 
 Honest caveats: the demo rules are hand-written and checked on fixtures; the demo trigger is a replayed real advisory with the live poller running beside it; detection to PR is measured from our watcher, not from publication; reachability means the code calls the vulnerable function, and the taint rule adds "with request data", neither proves an exploit.
 
