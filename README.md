@@ -153,9 +153,17 @@ npm run watch
 - [Configuration](docs/reference/configuration.md): every environment variable, with what happens when it is empty.
 - [Data freshness](docs/explanation/data-freshness.md): why a run re-fetches its inputs instead of reading stored rows.
 
+## Demo
+
+The target is [jingang-demo-app](https://github.com/g7xu/jingang-demo-app), an Express app pinned to lodash 4.17.4 with a reachable `merge` call on request data at `app.js:12`. Ten real lodash advisories match that version; one is exposed, the rest are suppressed or unconfirmed. The agent opened [this pull request](https://github.com/g7xu/jingang-demo-app/pull/5) by itself: newest safe version, `overrides` for transitive copies, tests passing, taint rule added to `.semgrep/`, explanation written by the model from the facts. A later pull request that merges request data again is [failed by the guardrail check](https://github.com/g7xu/jingang-demo-app/pull/6).
+
+**Isn't this Dependabot?** Dependabot opens a PR for every version match. Jingang shows how many matches are actually reachable, opens a PR only for those, verifies the fix, and leaves guardrails that block the same bug from coming back. The suppressed count on the dashboard is the proof.
+
 ## Status
 
-Hackathon build, Oct 9, 2026. The Must path runs end to end in dry mode; Guild, the rule generator and blast radius are not built.
+Built at the tokens& Cyberdefense Hackathon, San Francisco, Oct 9, 2026, by Guoxuan Xu and V. Sponsors used: ClickHouse Cloud for every table and the dashboard, Semgrep for reachability and the guardrails, Akash (AkashML) for the PR explanation. Not built: Guild.ai, the rule generator, blast radius.
+
+Honest caveats: the demo rules are hand-written and checked on fixtures; the demo trigger is a replayed real advisory with the live poller running beside it; detection to PR is measured from our watcher, not from publication; reachability means the code calls the vulnerable function, and the taint rule adds "with request data", neither proves an exploit.
 
 ## License
 
