@@ -141,12 +141,13 @@ export async function explain(f) {
   }
 }
 
-// Model text is untrusted: no links or markup, no versions or packages the facts do not contain.
+// Model text is untrusted: no links, HTML or headings, no versions or packages the facts do not contain.
+// Backticks, underscores and emphasis stay allowed because identifiers like `__proto__` need them.
 export function acceptableExplanation(text, f) {
   if (typeof text !== "string") return null;
   const plain = text.replace(/\s+/g, " ").trim();
-  if (plain.length < 40 || plain.length > 900 || !/[.!?)]$/.test(plain)) return null;
-  if (/https?:\/\/|www\.|[<>`#*_\[\]]/.test(plain)) return null;
+  if (plain.length < 40 || plain.length > 900 || !/[.!?)`]$/.test(plain)) return null;
+  if (/https?:\/\/|www\.|[<>\[\]]|(^|\s)#/.test(plain)) return null;
   const allowedVersions = new Set([f.fromVersion, f.toVersion]);
   for (const v of plain.match(/\d+\.\d+\.\d+/g) ?? []) if (!allowedVersions.has(v)) return null;
   const otherPackages = (plain.match(/\b[a-z][a-z0-9-]{2,}\/[a-z][a-z0-9-]+\b/g) ?? []).filter((p) => p !== f.package);
