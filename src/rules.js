@@ -30,7 +30,8 @@ export function reachabilityRulesFor(rules, advisoryId) {
 }
 
 // Stored guardrails are materialised to disk because Semgrep reads configs from files.
-export async function storedGuardrailConfigs() {
+// Ids in excludeIds are skipped: a rule that also lives in rules/ would make Semgrep report each finding twice.
+export async function storedGuardrailConfigs({ excludeIds = new Set() } = {}) {
   const guardrails = await rows(
     "SELECT id, advisory_id, kind, package, affected_range, rule_yaml FROM guardrails WHERE validated = 1 ORDER BY created_at",
   );
@@ -38,7 +39,7 @@ export async function storedGuardrailConfigs() {
   await mkdir(dir, { recursive: true });
   const configs = [];
   for (const g of guardrails) {
-    if (!g.rule_yaml) continue;
+    if (!g.rule_yaml || excludeIds.has(g.id)) continue;
     const path = join(dir, `${g.id}.yaml`);
     await writeFile(path, g.rule_yaml);
     configs.push(path);

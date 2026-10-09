@@ -7,8 +7,13 @@ const facts = { package: "lodash", fromVersion: "4.17.4", toVersion: "4.18.1" };
 test("plain prose that sticks to the facts is accepted, code spans included", () => {
   const text = "Your lockfile has lodash 4.17.4, which GHSA-fvqr-27wr-82fm affects. The upgrade to 4.18.1 removes the exposure at app.js line 12.";
   assert.equal(acceptableExplanation(text, facts), text);
-  const spans = "This removes the unsafe `merge` call at app.js:12 that let attacker-controlled `__proto__` keys reach object prototypes.";
+  const spans = "The upgrade fixes the `merge` function that app.js:12 calls, so `__proto__` keys from request data no longer pollute prototypes.";
   assert.equal(acceptableExplanation(spans, facts), spans);
+});
+
+test("a claim that the call site was removed falls back to the template", () => {
+  assert.equal(acceptableExplanation("This removes the unsafe `merge` call at app.js:12 that let attacker-controlled keys reach prototypes.", facts), null);
+  assert.equal(acceptableExplanation("This eliminates the unsafe merge usage in app.js (line 12) by moving lodash to 4.18.1 today.", facts), null);
 });
 
 test("links, HTML, headings and foreign versions fall back to the template", () => {

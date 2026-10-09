@@ -70,11 +70,13 @@ export function createApi() {
         replay(advisory_id).catch((err) => console.error(`run ${advisory_id} failed: ${err.message}`));
         return send(res, 202, { accepted: advisory_id });
       }
+      // Approval is recorded for the audit trail only. No run waits on it: the PRD accepts approvals
+      // from Guild once Guild is wired in, and until then the loop runs straight through to the PR.
       if (req.method === "POST" && url.pathname === "/api/approve") {
         if (!authorized(req)) return send(res, 401, { error: "X-Jingang-Secret header required" });
         const { run_id, advisory_id, approver = "api" } = await readJson(req);
         await insert("events", { run_id: run_id ?? "", advisory_id: advisory_id ?? "", repo: "", step: "approve", status: "approved", latency_ms: 0, detail: JSON.stringify({ approver }) });
-        return send(res, 200, { approved: true });
+        return send(res, 200, { approved: true, gates_run: false, note: "recorded only; runs do not wait for approval until Guild is wired in" });
       }
       return send(res, 404, { error: "not found" });
     } catch (err) {
@@ -84,7 +86,7 @@ export function createApi() {
   });
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (import.meta.filename === process.argv[1]) {
   createApi().listen(config.port, config.host, () => {
     console.log(`Jingang API on http://${config.host}:${config.port} (akash=${mode.akash}, github=${mode.github}, secret ${config.apiSecret ? "set" : "NOT set: /api/run disabled"})`);
   });

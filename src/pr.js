@@ -123,7 +123,7 @@ export async function explain(f) {
           {
             role: "system",
             content:
-              "You write the two-sentence plain-English explanation at the top of a dependency-fix pull request. Use only the facts given. Do not invent versions, files, or lines.",
+              "You write the two-sentence plain-English explanation at the top of a dependency-fix pull request. Use only the facts given. Do not invent versions, files, or lines. The call site stays in the code; the upgrade fixes the library. Never say the call is removed, eliminated or deleted.",
           },
           { role: "user", content: JSON.stringify({ advisory: f.advisory, package: f.package, from: f.fromVersion, to: f.toVersion, callSites: f.callSites, taint: f.taintFindings }) },
         ],
@@ -141,13 +141,15 @@ export async function explain(f) {
   }
 }
 
-// Model text is untrusted: no links, HTML or headings, no versions or packages the facts do not contain.
+// Model text is untrusted: no links, HTML or headings, no versions or packages the facts do not contain,
+// and no claim that the call site was removed, since an upgrade changes the library, not the caller.
 // Backticks, underscores and emphasis stay allowed because identifiers like `__proto__` need them.
 export function acceptableExplanation(text, f) {
   if (typeof text !== "string") return null;
   const plain = text.replace(/\s+/g, " ").trim();
   if (plain.length < 40 || plain.length > 900 || !/[.!?)`]$/.test(plain)) return null;
   if (/https?:\/\/|www\.|[<>\[\]]|(^|\s)#/.test(plain)) return null;
+  if (/\b(remov|eliminat|delet)\w*\b[^.]{0,60}\b(call|usage|line)\b/i.test(plain)) return null;
   const allowedVersions = new Set([f.fromVersion, f.toVersion]);
   for (const v of plain.match(/\d+\.\d+\.\d+/g) ?? []) if (!allowedVersions.has(v)) return null;
   const otherPackages = (plain.match(/\b[a-z][a-z0-9-]{2,}\/[a-z][a-z0-9-]+\b/g) ?? []).filter((p) => p !== f.package);
@@ -155,7 +157,7 @@ export function acceptableExplanation(text, f) {
   return plain;
 }
 
-export async function openPr({ repoPath, branch, title, body, runId }) {
+export async function openPr({ repoPath, branch, title, body, runId, labels = [] }) {
   await mkdir(config.outDir, { recursive: true });
   const bodyPath = join(config.outDir, `pr-${runId}.md`);
   await writeFile(bodyPath, body);
@@ -173,10 +175,21 @@ export async function openPr({ repoPath, branch, title, body, runId }) {
   await git(repoPath, ["push", "-q", "-f", pushTarget, `${branch}:${branch}`], tokenEnv(token));
   const base = await defaultBranch(repoPath);
   const env = token ? { ...process.env, GH_TOKEN: token } : process.env;
-  const { stdout } = await run(
-    "gh",
-    ["pr", "create", "--repo", repo, "--head", branch, "--base", base, "--title", title, "--body-file", bodyPath],
-    { env },
-  );
-  return { url: stdout.trim().split("\n").pop(), mode: "live", bodyPath, branch };
+  const create = (withLabels) =>
+    run(
+      "gh",
+      ["pr", "create", "--repo", repo, "--head", branch, "--base", base, "--title", title, "--body-file", bodyPath, ...withLabels.flatMap((l) => ["--label", l])],
+      { env },
+    );
+  // A label must already exist in the repo; when it does not, the PR still opens with the title suffix alone.
+  let labelsApplied = labels;
+  let result;
+  try {
+    result = await create(labels);
+  } catch (err) {
+    if (labels.length === 0) throw err;
+    labelsApplied = [];
+    result = await create([]);
+  }
+  return { url: result.stdout.trim().split("\n").pop(), mode: "live", bodyPath, branch, labelsApplied };
 }

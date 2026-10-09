@@ -42,15 +42,29 @@ export function affectedRanges(vuln, name, ecosystem = "npm") {
   return out;
 }
 
+// OSV range bounds are not always full semver ("1.0", "4.17"); they are coerced like the version is.
+// A bound that still does not parse is treated conservatively: an unreadable start means "from 0",
+// an unreadable end means "no fix known", so the advisory stays matched rather than silently dropped.
 export function isAffected(version, ranges) {
   const v = semver.coerce(version, { includePrerelease: true })?.version ?? semver.valid(version);
   if (!v) return false;
+  const bound = (x) => (x === undefined || x === null ? undefined : (semver.valid(x) ?? semver.coerce(x)?.version ?? undefined));
   return ranges.some((r) => {
-    const from = r.introduced === "0" ? "0.0.0" : r.introduced;
-    if (semver.lt(v, from)) return false;
-    if (r.fixed) return semver.lt(v, r.fixed);
-    if (r.lastAffected) return semver.lte(v, r.lastAffected);
-    return true;
+    try {
+      const from = r.introduced === "0" ? "0.0.0" : (bound(r.introduced) ?? "0.0.0");
+      if (semver.lt(v, from)) return false;
+      if (r.fixed !== undefined) {
+        const fixed = bound(r.fixed);
+        return fixed ? semver.lt(v, fixed) : true;
+      }
+      if (r.lastAffected !== undefined) {
+        const last = bound(r.lastAffected);
+        return last ? semver.lte(v, last) : true;
+      }
+      return true;
+    } catch {
+      return false;
+    }
   });
 }
 

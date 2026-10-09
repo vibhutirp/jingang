@@ -59,7 +59,7 @@ export async function runAdvisory(vuln, { repoPath = config.demoAppPath, detecte
   // 4. Exposed?
   t = Date.now();
   const taintRules = rules.filter((r) => r.kind === "taint_rule" && r.package === pkg);
-  const { configs: storedConfigs } = await storedGuardrailConfigs();
+  const { configs: storedConfigs } = await storedGuardrailConfigs({ excludeIds: new Set(rules.map((r) => r.id)) });
   const configs = [...new Set([...reach.map((r) => r.file), ...taintRules.map((r) => r.file), ...storedConfigs])];
   const { findings, errors } = await scan({ configs, target: repoPath });
   const reachIds = new Set(reach.map((r) => r.id));
@@ -75,14 +75,14 @@ export async function runAdvisory(vuln, { repoPath = config.demoAppPath, detecte
   // 5. Upgrade
   t = Date.now();
   const advisories = await allAdvisoriesFor(pkg);
-  const { version: safeVersion, latest } = await newestSafeVersion(pkg, advisories);
+  const fromVersion = matched[0].version;
+  const { version: safeVersion, latest, sameMajor } = await newestSafeVersion(pkg, advisories, fromVersion);
   if (!safeVersion) {
     await log("upgrade", "no_safe_version", { package: pkg, latest }, t);
     return summary;
   }
-  const fromVersion = matched[0].version;
   const { install } = await applyUpgrade(repoPath, pkg, safeVersion);
-  await log("upgrade", install.ok ? "upgraded" : "install_failed", { from: fromVersion, to: safeVersion, latest, output: install.output.slice(-800) }, t);
+  await log("upgrade", install.ok ? "upgraded" : "install_failed", { from: fromVersion, to: safeVersion, latest, sameMajor, output: install.output.slice(-800) }, t);
   const guardrailFiles = await writeGuardrailFiles(repoPath, taintRules);
 
   // 6. Verify
@@ -113,7 +113,14 @@ export async function runAdvisory(vuln, { repoPath = config.demoAppPath, detecte
   const explanation = await explain(facts);
   facts.explanation = explanation.text;
   const title = `fix(deps): upgrade ${pkg} ${fromVersion} → ${safeVersion} (${vuln.id})${verified ? "" : " [needs-human]"}`;
-  const pr = await openPr({ repoPath, branch: `jingang/${vuln.id.toLowerCase()}-${runId}`, title, body: buildBody(facts), runId });
+  const pr = await openPr({
+    repoPath,
+    branch: `jingang/${vuln.id.toLowerCase()}-${runId}`,
+    title,
+    body: buildBody(facts),
+    runId,
+    labels: verified ? [] : ["needs-human"],
+  });
   facts.detectionToPrMs = Date.now() - detectedAt.getTime();
   await log(
     "pr",
@@ -123,6 +130,7 @@ export async function runAdvisory(vuln, { repoPath = config.demoAppPath, detecte
       bodyPath: pr.bodyPath,
       branch: pr.branch,
       label: verified ? null : "needs-human",
+      labels_applied: pr.labelsApplied ?? [],
       detection_to_pr_ms: facts.detectionToPrMs,
       source,
       explanation_source: explanation.source,

@@ -7,6 +7,8 @@ import { getVuln, toAdvisoryRow } from "./osv.js";
 import { resetRepo } from "./pr.js";
 
 const POLL_MS = 60_000;
+// GitHub answers rate-limited polls with 403 or 429; waiting a full window beats hammering it.
+const RATE_LIMIT_BACKOFF_MS = 5 * 60_000;
 
 export async function replay(advisoryId, { repoPath = config.demoAppPath, reset = true } = {}) {
   const detectedAt = new Date();
@@ -33,7 +35,13 @@ export async function pollOnce(seen, { repoPath = config.demoAppPath, modifiedSi
     await insert("advisories", toAdvisoryRow(vuln, { detectedAt }));
     await insert("events", { run_id: "watch", advisory_id: vuln.id, repo: "", step: "watch", status: "live", latency_ms: 0, detail: JSON.stringify({ summary: a.summary }) });
     console.log(`live: ${vuln.id} ${a.summary ?? ""}`);
-    await runAdvisory(vuln, { repoPath, detectedAt, source: "live" });
+    // One advisory that blows up must not stop the poller; the failure is recorded as its own event.
+    try {
+      await runAdvisory(vuln, { repoPath, detectedAt, source: "live" });
+    } catch (err) {
+      console.error(`${vuln.id}: run failed: ${err.message}`);
+      await insert("events", { run_id: "watch", advisory_id: vuln.id, repo: "", step: "run", status: "error", latency_ms: 0, detail: JSON.stringify({ message: err.message.slice(0, 500) }) });
+    }
   }
   return fresh.length;
 }
@@ -43,17 +51,19 @@ export async function watch({ repoPath = config.demoAppPath, once = false } = {}
   const modifiedSince = Date.now() - 24 * 60 * 60 * 1000;
   console.log(`watching GitHub Advisory API (npm), ${seen.size} advisories already seen, modes: akash=${mode.akash} github=${mode.github}`);
   do {
+    let wait = POLL_MS;
     try {
       const n = await pollOnce(seen, { repoPath, modifiedSince });
       console.log(`${new Date().toISOString()} poll: ${n} new`);
     } catch (err) {
       console.error(`poll failed: ${err.message}`);
+      if (/\b(403|429)\b/.test(err.message)) wait = RATE_LIMIT_BACKOFF_MS;
     }
-    if (!once) await new Promise((r) => setTimeout(r, POLL_MS));
+    if (!once) await new Promise((r) => setTimeout(r, wait));
   } while (!once);
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+if (import.meta.filename === process.argv[1]) {
   const { values } = parseArgs({
     options: {
       replay: { type: "string" },

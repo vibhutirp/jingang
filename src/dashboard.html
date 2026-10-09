@@ -21,7 +21,7 @@
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; }
   td.status { font-weight: 600; }
-  .s-Exposed, .s-violated, .s-install_failed { color: var(--bad); } .s-Suppressed, .s-Verified, .s-opened, .s-stored, .s-upgraded { color: var(--good); } .s-needs-human, .s-Unconfirmed, .s-dry { color: var(--warn); } .s-Matched, .s-replay, .s-live, .s-hand_written { color: var(--accent); }
+  .s-Exposed, .s-install_failed, .s-error { color: var(--bad); } .s-Suppressed, .s-Verified, .s-opened, .s-stored, .s-upgraded { color: var(--good); } .s-needs-human, .s-Unconfirmed, .s-dry, .s-violated { color: var(--warn); } .s-Matched, .s-replay, .s-live, .s-hand_written { color: var(--accent); }
   code { color: var(--muted); }
   .modes { color: var(--muted); font-size: 12px; margin: 0 0 16px; }
 </style>
@@ -45,7 +45,7 @@
       if (d.callSites) return esc(d.callSites.map((c) => `${c.file}:${c.line}`).join(", ") + (d.taintFindings?.length ? ` · request data reaches ${d.taintFindings.length} call` : ""));
       if (d.from) return esc(`${d.from} → ${d.to}`);
       if (d.url) return /^https:\/\/github\.com\//.test(d.url) ? `<a href="${esc(d.url)}" style="color:var(--accent)">${esc(d.url)}</a>` : esc(d.url);
-      if (d.bodyPath) return esc(`dry run · ${d.bodyPath.split("/").pop()}`);
+      if (d.bodyPath) return esc(`dry run · ${d.bodyPath.split(/[\\/]/).pop()}`);
       if (d.installed) return esc(`installed ${d.installed.join(", ")}`);
       if (d.rules) return esc(d.rules.join(", "));
       if (d.stored) return esc(`stored ${d.stored.length}, present ${d.alreadyPresent.length}`);

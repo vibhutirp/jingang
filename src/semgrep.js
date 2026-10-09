@@ -28,14 +28,20 @@ export async function scan({ configs, target }) {
   const args = ["scan", "--metrics=off", "--quiet", "--json", "--exclude", "node_modules", ...configs.flatMap((c) => ["--config", c]), target];
   const { stdout } = await semgrep(args);
   const report = JSON.parse(stdout);
-  return {
-    findings: report.results.map((r) => ({
+  // The same rule id can arrive from two config files; one finding per (rule, file, line) is kept.
+  const byKey = new Map();
+  for (const r of report.results) {
+    const finding = {
       ruleId: r.check_id.split(".").pop(),
       file: relative(target, r.path),
       line: r.start.line,
       message: r.extra?.message ?? "",
       metadata: r.extra?.metadata ?? {},
-    })),
+    };
+    byKey.set(`${finding.ruleId}|${finding.file}|${finding.line}`, finding);
+  }
+  return {
+    findings: [...byKey.values()],
     errors: (report.errors ?? []).map((e) => e.message ?? String(e)),
   };
 }

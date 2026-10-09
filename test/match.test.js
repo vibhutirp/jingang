@@ -27,6 +27,13 @@ test("isAffected follows OSV introduced/fixed events", () => {
   assert.equal(isAffected("1.2.3", [{ introduced: "0", lastAffected: "1.2.3" }]), true);
 });
 
+test("isAffected tolerates range bounds that are not full semver", () => {
+  assert.equal(isAffected("4.17.4", [{ introduced: "1.0", fixed: "4.17" }]), false);
+  assert.equal(isAffected("4.16.9", [{ introduced: "1.0", fixed: "4.17" }]), true);
+  assert.equal(isAffected("4.17.4", [{ introduced: "garbage", fixed: "also garbage" }]), true);
+  assert.equal(isAffected("not a version", [{ introduced: "0", fixed: "4.17.5" }]), false);
+});
+
 test("affectedRanges reads only the requested npm package", () => {
   const vuln = {
     affected: [

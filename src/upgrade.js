@@ -13,14 +13,20 @@ export async function allAdvisoriesFor(name) {
 }
 
 // The newest stable release outside every known advisory range, not merely the first fixed version.
-export async function newestSafeVersion(name, advisories) {
+// Releases in the current major win when any exist, so a fix never jumps a major on its own.
+export function pickSafeVersion(versions, advisories, current) {
+  const safe = versions.filter((v) => semver.valid(v) && !semver.prerelease(v) && !advisories.some((a) => isAffected(v, a.ranges)));
+  const currentMajor = semver.valid(current) ? semver.major(current) : null;
+  const sameMajor = currentMajor === null ? [] : safe.filter((v) => semver.major(v) === currentMajor);
+  const pool = sameMajor.length ? sameMajor : safe;
+  return { version: pool.sort(semver.rcompare)[0] ?? null, candidates: safe.length, sameMajor: sameMajor.length > 0 };
+}
+
+export async function newestSafeVersion(name, advisories, current) {
   const res = await fetch(`https://registry.npmjs.org/${name}`, { headers: { Accept: "application/vnd.npm.install-v1+json" } });
   if (!res.ok) throw new Error(`npm registry ${res.status} for ${name}`);
   const meta = await res.json();
-  const safe = Object.keys(meta.versions ?? {}).filter(
-    (v) => semver.valid(v) && !semver.prerelease(v) && !advisories.some((a) => isAffected(v, a.ranges)),
-  );
-  return { version: safe.sort(semver.rcompare)[0] ?? null, latest: meta["dist-tags"]?.latest ?? null, candidates: safe.length };
+  return { ...pickSafeVersion(Object.keys(meta.versions ?? {}), advisories, current), latest: meta["dist-tags"]?.latest ?? null };
 }
 
 export async function applyUpgrade(repoPath, name, version) {
@@ -39,9 +45,11 @@ export async function runTests(repoPath) {
   return npm(repoPath, ["test"]);
 }
 
+// On Windows npm is npm.cmd, which Node only spawns through a shell.
 async function npm(cwd, args) {
+  const win = process.platform === "win32";
   try {
-    const { stdout, stderr } = await run("npm", args, { cwd, maxBuffer: 16 * 1024 * 1024 });
+    const { stdout, stderr } = await run(win ? `npm ${args.join(" ")}` : "npm", win ? [] : args, { cwd, maxBuffer: 16 * 1024 * 1024, shell: win });
     return { ok: true, output: `${stdout}${stderr}`.trim() };
   } catch (err) {
     return { ok: false, output: `${err.stdout ?? ""}${err.stderr ?? ""}`.trim() || err.message };

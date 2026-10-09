@@ -131,6 +131,12 @@ Replay one real advisory through the whole loop against the demo app:
 npm run replay -- GHSA-fvqr-27wr-82fm
 ```
 
+For a clean recording, wipe earlier runs first and replay the suppressed advisories before the exposed one, so no stored guardrail from a previous run colours the first tiles:
+
+```bash
+npm run schema -- --reset && npm run replay -- GHSA-35jh-r3h4-6jhm && npm run replay -- GHSA-p6mc-m468-83gw && npm run replay -- GHSA-fvqr-27wr-82fm
+```
+
 Start the dashboard and API on http://localhost:8787, then poll the GitHub Advisory API live:
 
 ```bash

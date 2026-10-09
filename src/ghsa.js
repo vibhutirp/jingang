@@ -1,6 +1,8 @@
 import { config } from "./env.js";
 
-// Unauthenticated calls get 60 requests an hour; one poll a minute fits.
+// Unauthenticated calls get 60 requests an hour, which a 60 s poll uses up exactly; any other
+// GitHub call from the same address then yields 403. With GITHUB_TOKEN set the limit is 5,000.
+// The token alone does not make the PR step live; that keys off GITHUB_REPO.
 export async function listNpmAdvisories({ modifiedSince, perPage = 50 } = {}) {
   const params = new URLSearchParams({ ecosystem: "npm", sort: "updated", direction: "desc", per_page: String(perPage) });
   if (modifiedSince) params.set("modified", `>=${new Date(modifiedSince).toISOString().slice(0, 10)}`);
