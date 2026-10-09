@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Replay one advisory (dry PR)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/watcher.js",
+      "runtimeArgs": ["--env-file=.env"],
+      "args": ["--replay", "GHSA-fvqr-27wr-82fm"],
+      "env": { "GITHUB_REPO": "" },
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Replay one advisory (live PR)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/watcher.js",
+      "runtimeArgs": ["--env-file=.env"],
+      "args": ["--replay", "GHSA-fvqr-27wr-82fm"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Watcher (live poll, one pass)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/watcher.js",
+      "runtimeArgs": ["--env-file=.env"],
+      "args": ["--once"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "API and dashboard",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/api.js",
+      "runtimeArgs": ["--env-file=.env"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
