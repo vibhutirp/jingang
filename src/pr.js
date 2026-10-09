@@ -114,7 +114,9 @@ export async function explain(f) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.akash.apiKey}` },
       body: JSON.stringify({
         model: config.akash.model,
-        max_tokens: 300,
+        // Reasoning models spend part of this budget thinking; too small a cap truncates the visible answer.
+        max_tokens: 1500,
+        reasoning_effort: "low",
         messages: [
           {
             role: "system",
@@ -127,7 +129,9 @@ export async function explain(f) {
     });
     if (!res.ok) return fallback;
     const data = await res.json();
-    return acceptableExplanation(data.choices?.[0]?.message?.content, f) ?? fallback;
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason === "length") return fallback;
+    return acceptableExplanation(choice?.message?.content, f) ?? fallback;
   } catch {
     return fallback;
   }
@@ -137,7 +141,7 @@ export async function explain(f) {
 export function acceptableExplanation(text, f) {
   if (typeof text !== "string") return null;
   const plain = text.replace(/\s+/g, " ").trim();
-  if (plain.length < 40 || plain.length > 900) return null;
+  if (plain.length < 40 || plain.length > 900 || !/[.!?)]$/.test(plain)) return null;
   if (/https?:\/\/|www\.|[<>`#*_\[\]]/.test(plain)) return null;
   const allowedVersions = new Set([f.fromVersion, f.toVersion]);
   for (const v of plain.match(/\d+\.\d+\.\d+/g) ?? []) if (!allowedVersions.has(v)) return null;

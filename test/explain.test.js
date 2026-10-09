@@ -15,5 +15,6 @@ test("links, markup and foreign versions fall back to the template", () => {
   assert.equal(acceptableExplanation("Lodash 4.17.4 should move to 5.0.0 which is the version that fixes everything.", facts), null);
   assert.equal(acceptableExplanation("Also install @evil/package alongside lodash 4.18.1 for safety, it is recommended.", facts), null);
   assert.equal(acceptableExplanation("ok", facts), null);
+  assert.equal(acceptableExplanation("This pull request upgrades lodash from 4.17.4 to 4.18.1 to remediate GHSA-fvqr-", facts), null);
   assert.equal(acceptableExplanation(undefined, facts), null);
 });
