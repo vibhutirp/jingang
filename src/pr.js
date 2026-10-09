@@ -149,7 +149,8 @@ export function acceptableExplanation(text, f) {
 export async function openPr({ repoPath, branch, title, body, runId }) {
   await mkdir(config.outDir, { recursive: true });
   const bodyPath = join(config.outDir, `pr-${runId}.md`);
-  await writeFile(bodyPath, `# ${title}\n\n${body}`);
+  await writeFile(bodyPath, body);
+  await writeFile(join(config.outDir, `pr-${runId}.title`), `${title}\n`);
 
   if (!(await isOwnGitRepo(repoPath))) return { url: null, mode: "dry", bodyPath, note: "demo app path is not its own git repository" };
 
