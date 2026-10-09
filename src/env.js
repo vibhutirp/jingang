@@ -12,7 +12,7 @@ export const config = {
   akash: {
     apiKey: env("AKASHML_API_KEY"),
     baseUrl: env("AKASHML_BASE_URL", "https://api.akashml.com/v1"),
-    model: env("AKASHML_MODEL", "gpt-oss-120b"),
+    model: env("AKASHML_MODEL", "openai/gpt-oss-120b"),
   },
   github: {
     token: env("GITHUB_TOKEN"),

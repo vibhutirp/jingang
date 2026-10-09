@@ -1,24 +1,12 @@
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { insert, rows } from "./ch.js";
 import { installedVersions } from "./match.js";
 import { isAffected } from "./osv.js";
 
-const WORKFLOW = `name: jingang-guardrails
-on: [pull_request]
-jobs:
-  semgrep:
-    runs-on: ubuntu-latest
-    container: semgrep/semgrep
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - run: semgrep scan --config .semgrep --baseline-commit "origin/\${{ github.base_ref }}" --error
-`;
-
-// Files the fix PR carries into the demo repo so CI blocks the pattern from returning.
+// Rule files the fix PR carries into the demo repo. The CI workflow that runs them
+// (deploy/demo-app-guardrails.yml) is seeded by hand: a token without the workflow
+// scope cannot push anything under .github/workflows, and the agent's token must not have it.
 export async function writeGuardrailFiles(repoPath, taintRules) {
   const semgrepDir = join(repoPath, ".semgrep");
   await mkdir(semgrepDir, { recursive: true });
@@ -27,15 +15,6 @@ export async function writeGuardrailFiles(repoPath, taintRules) {
     const target = join(semgrepDir, basename(rule.file));
     await copyFile(rule.file, target);
     written.push(`.semgrep/${basename(rule.file)}`);
-  }
-  const workflowDir = join(repoPath, ".github", "workflows");
-  const workflowPath = join(workflowDir, "jingang-guardrails.yml");
-  try {
-    await readFile(workflowPath);
-  } catch {
-    await mkdir(workflowDir, { recursive: true });
-    await writeFile(workflowPath, WORKFLOW);
-    written.push(".github/workflows/jingang-guardrails.yml");
   }
   return written;
 }

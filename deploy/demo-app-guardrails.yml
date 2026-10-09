@@ -1,0 +1,15 @@
+# Copy of the CI check seeded into the demo repo at .github/workflows/jingang-guardrails.yml.
+# --baseline-commit fails only on findings new in the PR, so the fix PR reports the
+# existing call site without being blocked while a PR that re-adds it is blocked.
+name: jingang-guardrails
+on: [pull_request]
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: semgrep scan --config .semgrep --baseline-commit "origin/${{ github.base_ref }}" --error
