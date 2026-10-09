@@ -9,7 +9,7 @@ const VOCAB = ["Matched", "Exposed", "Suppressed", "Unconfirmed", "Verified"];
 // Dashboard numbers are counts over the latest status per (advisory, step); nothing else feeds them.
 export async function stats() {
   const latest = await rows(
-    "SELECT advisory_id, step, argMax(status, ts) AS status, argMax(detail, ts) AS detail, max(ts) AS ts FROM events WHERE run_id != 'watch' GROUP BY advisory_id, step",
+    "SELECT advisory_id, step, argMax(status, ts) AS status, argMax(detail, ts) AS detail, max(ts) AS last_ts FROM events WHERE run_id != 'watch' GROUP BY advisory_id, step",
   );
   const count = (step, status) => latest.filter((r) => r.step === step && r.status === status).length;
   const prs = latest.filter((r) => r.step === "pr");
@@ -34,7 +34,8 @@ export async function stats() {
 }
 
 export async function recentEvents(limit = 60) {
-  return rows(`SELECT ts, run_id, advisory_id, repo, step, status, latency_ms, detail FROM events ORDER BY ts DESC LIMIT ${Number(limit)}`);
+  const capped = Math.min(Math.max(1, Number(limit) || 60), 500);
+  return rows(`SELECT ts, run_id, advisory_id, repo, step, status, latency_ms, detail FROM events ORDER BY ts DESC LIMIT ${capped}`);
 }
 
 function authorized(req) {
@@ -84,7 +85,7 @@ export function createApi() {
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  createApi().listen(config.port, () => {
-    console.log(`Jingang API on http://localhost:${config.port} (akash=${mode.akash}, github=${mode.github}, secret ${config.apiSecret ? "set" : "NOT set: /api/run disabled"})`);
+  createApi().listen(config.port, config.host, () => {
+    console.log(`Jingang API on http://${config.host}:${config.port} (akash=${mode.akash}, github=${mode.github}, secret ${config.apiSecret ? "set" : "NOT set: /api/run disabled"})`);
   });
 }

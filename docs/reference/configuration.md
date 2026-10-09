@@ -17,5 +17,6 @@ All settings are environment variables, read from `.env` locally. Copy `.env.exa
 | `JINGANG_API_SECRET` | for `/api/run`, `/api/approve` | empty | Expected value of the `X-Jingang-Secret` header. `/api/stats` is read-only and needs none. Empty disables both endpoints. |
 | `DEMO_APP_PATH` | yes | `../jingang-demo-app` | Local clone of the demo app the loop reads, upgrades and commits in. A plain directory that is not its own git repository gets a dry run. |
 | `JINGANG_PORT` | no | `8787` | Port for the glue API and dashboard. |
+| `JINGANG_HOST` | no | `127.0.0.1` | Bind address. Set `0.0.0.0` only behind something that terminates TLS and auth. |
 
 Every component must run with only the `CLICKHOUSE_*` variables set, so a missing key degrades one step rather than blocking the demo. The token scoping rules come from the "Securing Jingang itself" section of the [PRD](../prd.md).

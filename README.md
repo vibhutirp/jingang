@@ -110,6 +110,37 @@ flowchart TD
     GRT --> DASH
 ```
 
+## Install
+
+Needs Node 22+, the Semgrep CLI, a ClickHouse you can reach over HTTP, and a local clone of the demo app next to this repo.
+
+```bash
+git clone https://github.com/g7xu/jingang-demo-app ../jingang-demo-app && (cd ../jingang-demo-app && npm install)
+npm install
+cp .env.example .env
+npm run schema
+```
+
+With only the `CLICKHOUSE_*` variables set, AkashML text is templated and the PR step writes its body to `out/` instead of opening a pull request. Add keys to `.env` to switch each step live; see [Configuration](docs/reference/configuration.md).
+
+## Run
+
+Replay one real advisory through the whole loop against the demo app:
+
+```bash
+npm run replay -- GHSA-fvqr-27wr-82fm
+```
+
+Start the dashboard and API on http://localhost:8787, then poll the GitHub Advisory API live:
+
+```bash
+npm run api
+```
+
+```bash
+npm run watch
+```
+
 ## Documentation
 
 - [Proposal & architecture, v2.4](docs/prd.md): the current spec. Loop definitions, rules and fixtures, ClickHouse data model, scope and checkpoints, demo script.
@@ -118,7 +149,7 @@ flowchart TD
 
 ## Status
 
-Hackathon build, Oct 9, 2026. No pipeline code yet; the Must list in the PRD is the build order. Copy `.env.example` to `.env` before running anything.
+Hackathon build, Oct 9, 2026. The Must path runs end to end in dry mode; Guild, the rule generator and blast radius are not built.
 
 ## License
 

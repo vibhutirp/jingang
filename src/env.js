@@ -22,6 +22,7 @@ export const config = {
   apiSecret: env("JINGANG_API_SECRET"),
   demoAppPath: resolve(env("DEMO_APP_PATH", "../jingang-demo-app")),
   port: Number(env("JINGANG_PORT", "8787")),
+  host: env("JINGANG_HOST", "127.0.0.1"),
   rulesDir: resolve("rules"),
   outDir: resolve("out"),
 };

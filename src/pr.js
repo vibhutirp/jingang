@@ -6,9 +6,21 @@ import { config, mode } from "./env.js";
 
 const run = promisify(execFile);
 
-async function git(cwd, args) {
-  const { stdout } = await run("git", ["-C", cwd, ...args]);
+async function git(cwd, args, env = process.env) {
+  const { stdout } = await run("git", ["-C", cwd, ...args], { env });
   return stdout.trim();
+}
+
+// The token travels in git's environment-based config, never in argv or the remote URL.
+function tokenEnv(token) {
+  if (!token) return process.env;
+  const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
+  return {
+    ...process.env,
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
+    GIT_CONFIG_VALUE_0: `Authorization: Basic ${basic}`,
+  };
 }
 
 // The demo app must be its own repository; a plain directory gets a DRY run with the body on disk.
@@ -132,8 +144,8 @@ export async function openPr({ repoPath, branch, title, body, runId }) {
   if (mode.github !== "live") return { url: null, mode: "dry", bodyPath, branch };
 
   const { token, repo } = config.github;
-  const pushTarget = token ? `https://x-access-token:${token}@github.com/${repo}.git` : "origin";
-  await git(repoPath, ["push", "-q", "-f", pushTarget, `${branch}:${branch}`]);
+  const pushTarget = token ? `https://github.com/${repo}.git` : "origin";
+  await git(repoPath, ["push", "-q", "-f", pushTarget, `${branch}:${branch}`], tokenEnv(token));
   const base = await defaultBranch(repoPath);
   const env = token ? { ...process.env, GH_TOKEN: token } : process.env;
   const { stdout } = await run(

@@ -35,24 +35,27 @@
   <table><thead><tr><th>time</th><th>run</th><th>advisory</th><th>step</th><th>status</th><th>ms</th><th>detail</th></tr></thead><tbody id="events"></tbody></table>
 </main>
 <script>
-  const tile = (cls, label, value, sub = "") => `<div class="tile ${cls}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  // Advisory text comes from public feeds, so every value is escaped before it touches innerHTML.
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const tile = (cls, label, value, sub = "") => `<div class="tile ${cls}"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`;
   const secs = (ms) => ms == null ? "–" : (ms / 1000).toFixed(1) + " s";
   const brief = (detail) => {
     try {
       const d = JSON.parse(detail);
-      if (d.callSites) return d.callSites.map((c) => `${c.file}:${c.line}`).join(", ") + (d.taintFindings?.length ? ` · request data reaches ${d.taintFindings.length} call` : "");
-      if (d.from) return `${d.from} → ${d.to}`;
-      if (d.url) return `<a href="${d.url}" style="color:var(--accent)">${d.url}</a>`;
-      if (d.bodyPath) return `dry run · ${d.bodyPath.split("/").pop()}`;
-      if (d.installed) return `installed ${d.installed.join(", ")}`;
-      if (d.rules) return d.rules.join(", ");
-      if (d.stored) return `stored ${d.stored.length}, present ${d.alreadyPresent.length}`;
-      if (d.reason) return d.reason;
-      return Object.keys(d).length ? Object.entries(d).slice(0, 3).map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v).slice(0, 40) : v}`).join(" ") : "";
-    } catch { return detail; }
+      if (d.callSites) return esc(d.callSites.map((c) => `${c.file}:${c.line}`).join(", ") + (d.taintFindings?.length ? ` · request data reaches ${d.taintFindings.length} call` : ""));
+      if (d.from) return esc(`${d.from} → ${d.to}`);
+      if (d.url) return /^https:\/\/github\.com\//.test(d.url) ? `<a href="${esc(d.url)}" style="color:var(--accent)">${esc(d.url)}</a>` : esc(d.url);
+      if (d.bodyPath) return esc(`dry run · ${d.bodyPath.split("/").pop()}`);
+      if (d.installed) return esc(`installed ${d.installed.join(", ")}`);
+      if (d.rules) return esc(d.rules.join(", "));
+      if (d.stored) return esc(`stored ${d.stored.length}, present ${d.alreadyPresent.length}`);
+      if (d.reason) return esc(d.reason);
+      return esc(Object.keys(d).length ? Object.entries(d).slice(0, 3).map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v).slice(0, 40) : v}`).join(" ") : "");
+    } catch { return esc(detail); }
   };
   async function refresh() {
     const s = await (await fetch("/api/stats")).json();
+    if (s.error) { document.getElementById("modes").textContent = `stats unavailable: ${s.error}`; return; }
     document.getElementById("modes").textContent = `AkashML: ${s.modes.akash} · GitHub: ${s.modes.github} · advisories seen: ${s.advisories_seen}`;
     document.getElementById("tiles").innerHTML = [
       tile("", "Matched", s.matched, `${s.not_in_range} not in range`),
@@ -65,7 +68,7 @@
     ].join("");
     const ev = await (await fetch("/api/events?limit=60")).json();
     document.getElementById("events").innerHTML = ev.map((e) =>
-      `<tr><td>${e.ts.slice(11, 19)}</td><td><code>${e.run_id}</code></td><td>${e.advisory_id}</td><td>${e.step}</td><td class="status s-${e.status}">${e.status}</td><td>${e.latency_ms || ""}</td><td>${brief(e.detail)}</td></tr>`).join("");
+      `<tr><td>${esc(new Date(e.ts.replace(" ", "T") + "Z").toLocaleTimeString([], { hour12: false }))}</td><td><code>${esc(e.run_id)}</code></td><td>${esc(e.advisory_id)}</td><td>${esc(e.step)}</td><td class="status s-${esc(e.status)}">${esc(e.status)}</td><td>${esc(e.latency_ms || "")}</td><td>${brief(e.detail)}</td></tr>`).join("");
   }
   refresh();
   setInterval(refresh, 4000);
