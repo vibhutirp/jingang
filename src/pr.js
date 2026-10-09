@@ -107,8 +107,10 @@ export async function explain(f) {
   const fallback = `Your lockfile has ${f.package} ${f.fromVersion}, inside the range affected by ${f.advisory.id} (${f.advisory.summary}). Jingang confirmed the code calls the vulnerable function at ${f.callSites[0]?.file}:${f.callSites[0]?.line}, so this is exposure, not just an old version. The upgrade to ${f.toVersion} is the newest release outside every known advisory for this package.`;
   if (mode.akash !== "live") return fallback;
   try {
+    // A slow or dead model endpoint must never hold up the PR; the template is always acceptable.
     const res = await fetch(`${config.akash.baseUrl}/chat/completions`, {
       method: "POST",
+      signal: AbortSignal.timeout(90_000),
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.akash.apiKey}` },
       body: JSON.stringify({
         model: config.akash.model,

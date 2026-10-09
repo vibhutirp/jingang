@@ -8,9 +8,9 @@ All settings are environment variables, read from `.env` locally. Copy `.env.exa
 | `CLICKHOUSE_USER` | yes | `default` | |
 | `CLICKHOUSE_PASSWORD` | yes | `hack` | Password of the team's local Docker container `ch-hack`; Cloud uses its own. |
 | `CLICKHOUSE_DB` | no | `jingang` | Database the schema creates and every query runs in. |
-| `AKASHML_API_KEY` | no | empty | Empty runs rule generation and PR text in mock mode: hand-written rules, templated text. |
-| `AKASHML_BASE_URL` | no | `https://api.akashml.com/v1` | OpenAI-compatible endpoint. |
-| `AKASHML_MODEL` | no | `gpt-oss-120b` | |
+| `AKASHML_API_KEY` | no | empty | Empty runs rule generation and PR text in mock mode: hand-written rules, templated text. Any non-empty value switches the model call on; a self-hosted endpoint ignores it. |
+| `AKASHML_BASE_URL` | no | `https://api.akashml.com/v1` | Any OpenAI-compatible endpoint, including an Ollama container on Akash console deployed from `deploy/akash-ollama.yaml`. |
+| `AKASHML_MODEL` | no | `gpt-oss-120b` | Model name the endpoint knows, for example `qwen2.5:3b` on the Ollama deployment. |
 | `GITHUB_TOKEN` | no | empty | Fine-grained token scoped to `jingang-demo-app` only: Contents and Pull requests read/write, 7-day expiry. Empty makes the PR step print the body instead of opening it. |
 | `GITHUB_REPO` | no | empty | `owner/name` of the demo app the agent patches. |
 | `GUILD_API_URL` | no | empty | Empty runs the loop locally; Guild is a Should item. |
