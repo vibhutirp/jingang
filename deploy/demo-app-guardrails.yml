@@ -1,0 +1,19 @@
+# Copy of the CI check seeded into the demo repo at .github/workflows/jingang-guardrails.yml.
+# --baseline-commit fails only on findings new in the PR, so the fix PR reports the
+# existing call site without being blocked while a PR that re-adds it is blocked.
+# Semgrep is installed with pip rather than run as a container: Docker Hub pulls from
+# GitHub runners time out often enough to fail a demo.
+name: jingang-guardrails
+on: [pull_request]
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet semgrep
+      - run: semgrep scan --metrics=off --config .semgrep --baseline-commit "origin/${{ github.base_ref }}" --error

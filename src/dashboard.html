@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jingang</title>
+<style>
+  :root { --bg: #0f1115; --panel: #171a21; --line: #262a33; --text: #e8e8e8; --muted: #8a8f9c; --good: #5ad17a; --warn: #f2b63d; --bad: #f06a5a; --accent: #7aa2f7; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 ui-sans-serif, system-ui, sans-serif; }
+  header { padding: 20px 24px 8px; display: flex; align-items: baseline; gap: 14px; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+  header span { color: var(--muted); font-size: 13px; }
+  main { padding: 8px 24px 32px; max-width: 1200px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .tile .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .tile .value { font-size: 34px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .exposed .value { color: var(--bad); } .suppressed .value { color: var(--good); } .verified .value { color: var(--good); } .needs .value { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  td.status { font-weight: 600; }
+  .s-Exposed, .s-install_failed, .s-error { color: var(--bad); } .s-Suppressed, .s-Verified, .s-opened, .s-stored, .s-upgraded { color: var(--good); } .s-needs-human, .s-Unconfirmed, .s-dry, .s-violated { color: var(--warn); } .s-Matched, .s-replay, .s-live, .s-hand_written { color: var(--accent); }
+  code { color: var(--muted); }
+  .modes { color: var(--muted); font-size: 12px; margin: 0 0 16px; }
+</style>
+</head>
+<body>
+<header><h1>金刚 Jingang</h1><span>advisory to verified PR, with the noise shown</span></header>
+<main>
+  <p class="modes" id="modes"></p>
+  <section class="tiles" id="tiles"></section>
+  <h2 style="font-size:15px;color:var(--muted);font-weight:500;margin:0 0 8px">Recent events</h2>
+  <table><thead><tr><th>time</th><th>run</th><th>advisory</th><th>step</th><th>status</th><th>ms</th><th>detail</th></tr></thead><tbody id="events"></tbody></table>
+</main>
+<script>
+  // Advisory text comes from public feeds, so every value is escaped before it touches innerHTML.
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const tile = (cls, label, value, sub = "") => `<div class="tile ${cls}"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="sub">${esc(sub)}</div></div>`;
+  const secs = (ms) => ms == null ? "–" : (ms / 1000).toFixed(1) + " s";
+  const brief = (detail) => {
+    try {
+      const d = JSON.parse(detail);
+      if (d.callSites) return esc(d.callSites.map((c) => `${c.file}:${c.line}`).join(", ") + (d.taintFindings?.length ? ` · request data reaches ${d.taintFindings.length} call` : ""));
+      if (d.from) return esc(`${d.from} → ${d.to}`);
+      if (d.url) return /^https:\/\/github\.com\//.test(d.url) ? `<a href="${esc(d.url)}" style="color:var(--accent)">${esc(d.url)}</a>` : esc(d.url);
+      if (d.bodyPath) return esc(`dry run · ${d.bodyPath.split(/[\\/]/).pop()}`);
+      if (d.installed) return esc(`installed ${d.installed.join(", ")}`);
+      if (d.rules) return esc(d.rules.join(", "));
+      if (d.stored) return esc(`stored ${d.stored.length}, present ${d.alreadyPresent.length}`);
+      if (d.reason) return esc(d.reason);
+      return esc(Object.keys(d).length ? Object.entries(d).slice(0, 3).map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v).slice(0, 40) : v}`).join(" ") : "");
+    } catch { return esc(detail); }
+  };
+  async function refresh() {
+    const s = await (await fetch("/api/stats")).json();
+    if (s.error) { document.getElementById("modes").textContent = `stats unavailable: ${s.error}`; return; }
+    document.getElementById("modes").textContent = `AkashML: ${s.modes.akash} · GitHub: ${s.modes.github} · advisories seen: ${s.advisories_seen}`;
+    document.getElementById("tiles").innerHTML = [
+      tile("", "Matched", s.matched, `${s.not_in_range} not in range`),
+      tile("exposed", "Exposed", s.exposed, "rule hit and version in range"),
+      tile("suppressed", "Suppressed", s.suppressed, "matched, no call site: the noise"),
+      tile("", "Unconfirmed", s.unconfirmed, "no rule passed the gate"),
+      tile("verified", "Verified", s.verified, `${s.needs_human} needs-human`),
+      tile("", "PRs", s.prs, `${s.guardrails} guardrails stored`),
+      tile("", "Detection to PR", secs(s.detection_to_pr_ms.last), `avg ${secs(s.detection_to_pr_ms.avg)}`),
+    ].join("");
+    const ev = await (await fetch("/api/events?limit=60")).json();
+    document.getElementById("events").innerHTML = ev.map((e) =>
+      `<tr><td>${esc(new Date(e.ts.replace(" ", "T") + "Z").toLocaleTimeString([], { hour12: false }))}</td><td><code>${esc(e.run_id)}</code></td><td>${esc(e.advisory_id)}</td><td>${esc(e.step)}</td><td class="status s-${esc(e.status)}">${esc(e.status)}</td><td>${esc(e.latency_ms || "")}</td><td>${brief(e.detail)}</td></tr>`).join("");
+  }
+  refresh();
+  setInterval(refresh, 4000);
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+rules:
+  - id: jingang-ghsa-p6mc-m468-83gw-call
+    message: >-
+      Calls lodash $F, which allows prototype pollution in lodash before 4.17.19
+      (GHSA-p6mc-m468-83gw). Exposed only if the lockfile has lodash < 4.17.19.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      advisory: GHSA-p6mc-m468-83gw
+      package: lodash
+      kind: reachability
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      const $L = require("lodash");
+                      ...
+                  - pattern-inside: |
+                      import $L from "lodash";
+                      ...
+                  - pattern-inside: |
+                      import * as $L from "lodash";
+                      ...
+              - pattern: $L.$F(...)
+          - patterns:
+              - pattern-inside: |
+                  import { $F } from "lodash";
+                  ...
+              - pattern: $F(...)
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^(zipObjectDeep)$

@@ -1,0 +1,25 @@
+rules:
+  - id: jingang-guard-untrusted-input-deep-merge
+    message: >-
+      Request data flows into a deep merge ($F). This is how prototype pollution
+      happens, on any library version. Strip __proto__ and constructor keys first.
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata:
+      advisory: GHSA-fvqr-27wr-82fm
+      package: lodash
+      kind: taint_rule
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQ.body
+          - pattern: $REQ.query
+          - pattern: $REQ.params
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $L.$F(...)
+              - pattern: $F(...)
+          - metavariable-regex:
+              metavariable: $F
+              regex: ^(merge|mergeWith|defaultsDeep)$
